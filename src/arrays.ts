@@ -1,4 +1,3 @@
-
 export function fill<T>(a: T[], val: T): T[] {
   for (let i = 0; i < a.length; ++i) {
     a[i] = val;
@@ -6,12 +5,16 @@ export function fill<T>(a: T[], val: T): T[] {
   return a;
 }
 
+export function array<T>(length: number): T[] {
+  return new Array<T>(length);
+}
+
 export function ones(length: number): number[] {
-  return fill(new Array(length), 1)
+  return fill(new Array(length), 1);
 }
 
 export function zeros(length: number): number[] {
-  return fill(new Array(length), 0)
+  return fill(new Array(length), 0);
 }
 
 export function map2<T, U, V>(arr1: T[], arr2: U[], f: (a: T, b: U) => V): V[] {
@@ -21,4 +24,8 @@ export function map2<T, U, V>(arr1: T[], arr2: U[], f: (a: T, b: U) => V): V[] {
     );
   }
   return arr1.map((v1, i) => f(v1, arr2[i]));
+}
+
+export function eq<T>(arr1: T[], arr2: T[]): boolean {
+  return arr1.length == arr2.length && arr1.every((v, i) => v === arr2[i]);
 }

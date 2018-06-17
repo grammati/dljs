@@ -84,7 +84,20 @@ export function broadcastFn(
   b: NDArray,
   op: (a: number, b: number) => number
 ): NDArray {
-  const out = zeros(broadcast(a.shape, b.shape));
-  return out;
+  if (arrays.eq(a.shape, b.shape)) {
+    // Fast-path (maybe... I haven't measured)
+    const size = sizeOf(a.shape);
+    const out = arrays.array<number>(size);
+    const da = a.data;
+    const db = b.data;
+    for (let i = 0; i < size; ++i) {
+      // Assuming/hoping the JIT inlines this:
+      out[i] = op(da[i], db[i]);
+    }
+    return new NDArray(out, a.shape);
+  } else {
+    const outShape = broadcast(a.shape, b.shape);
+    const size = sizeOf(outShape);
+    return new NDArray(arrays.zeros(size), outShape);
+  }
 }
-
