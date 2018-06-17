@@ -6,12 +6,14 @@ describe("NDArray", () => {
 
     const a = array([1, 2, 3]);
 
-    it("should add numbers", () => {
+    it("should add a number", () => {
       expect(a.add(1).data).toEqual([2, 3, 4]);
     });
-    // it('should add array', () => {
-    //   expect(a.add([1]).data).toEqual([2,3,4])
-    // })
+
+    it('should add an array of the same size', () => {
+      expect(a.add([1,1,1]).data).toEqual([2,3,4])
+    })
+
     // it('should add an NDArray', () => {
     //   expect(a.add(array([1,1,1]))).toEqual([2,3,4])
     // })

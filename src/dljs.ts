@@ -1,8 +1,10 @@
-type ArrayLike = NDArray | number[] | number;
+import * as arrays from "./arrays";
+
+type ArrayLike = NDArray | number | number[];
 
 export class NDArray {
-  data: number[];
-  shape: number[];
+  readonly data: number[];
+  readonly shape: number[];
 
   get size() {
     return this.data.length;
@@ -12,9 +14,16 @@ export class NDArray {
     return this.shape.length;
   }
 
-  constructor(data: number[]) {
+  constructor(data: number[], shape?: number[]) {
     this.data = data;
-    this.shape = [data.length];
+    this.shape = shape || [data.length];
+    this.validateShapeMatchesData();
+  }
+
+  private validateShapeMatchesData() {
+    if (this.data.length !== this.shape.reduce((a, b) => a * b)) {
+      throw new Error("Shape is not compatible with size of data array");
+    }
   }
 
   add(other: ArrayLike): NDArray {
@@ -36,44 +45,38 @@ export class NDArray {
   }
 }
 
+export function sizeOf(shape: number[]) {
+  return shape.reduce((a, b) => a * b);
+}
+
 export function array(data: number[]) {
   return new NDArray(data);
 }
 
-export function doTimes(n: number, f: () => void) {
-  for (let i = 0; i < n; ++i) {
-    f();
-  }
+export function ones(shape: number | number[]): NDArray {
+  if (typeof shape === "number") shape = [shape];
+  return new NDArray(arrays.ones(sizeOf(shape)), shape);
 }
 
-export function ones(n: number) {
-  const a: number[] = [];
-  doTimes(n, () => a.push(1));
-  return a;
+export function zeros(shape: number | number[]): NDArray {
+  if (typeof shape === "number") shape = [shape];
+  return new NDArray(arrays.zeros(sizeOf(shape)), shape);
 }
 
-export function map2<T,U,V>(arr1: T[], arr2: U[], f: (a:T, b:U) => V): V[] {
-  if (arr1.length !== arr2.length) {
-    throw new Error(`Arrays are not the same length: ${arr1.length} and ${arr2.length}`)
-  }
-  return arr1.map((v1, i) => f(v1, arr2[i]));
-}
-
-// export function map2()
 export function broadcast(shape1: number[], shape2: number[]): number[] {
   const [n1, n2] = [shape1.length, shape2.length];
   if (n1 < n2) {
-    return broadcast([...ones(n2-n1), ...shape1], shape2);
+    return broadcast([...arrays.ones(n2 - n1), ...shape1], shape2);
   }
   if (n2 < n1) {
-    return broadcast(shape1, [...ones(n1-n2), ...shape2]);
+    return broadcast(shape1, [...arrays.ones(n1 - n2), ...shape2]);
   }
-  return map2(shape1, shape2, (a,b) => {
+  return arrays.map2(shape1, shape2, (a, b) => {
     if (a === b) return a;
     if (a === 1) return b;
     if (b === 1) return a;
-    throw new Error(`Incompatible shapes: `)
-  })
+    throw new Error(`Incompatible shapes: ${shape1}, ${shape2}`);
+  });
 }
 
 export function broadcastFn(
@@ -81,26 +84,7 @@ export function broadcastFn(
   b: NDArray,
   op: (a: number, b: number) => number
 ): NDArray {
-  for (const x in broadcast(a.shape, b.shape)) {
-  }
-  return a;
+  const out = zeros(broadcast(a.shape, b.shape));
+  return out;
 }
 
-// class Array_1D<D1> {
-// }
-// class Array_2D<D2,D1> extends Array_1D<D1> {
-// }
-// class Array_3D<D3,D2,D1> extends Array_2D<D2,D1> {
-// }
-
-// type W = 'width';
-// type H = 'height';
-// type C = 'color';
-// type S = 'sample'
-
-// function mm<X,Y,Z>(a: Array_2D<X,Y>, b: Array_2D<Y,Z>): Array_3D<X,Y,Z> {
-//   return new Array_3D<X,Y,Z>();
-// }
-
-// const a = mm(new Array_2D<W,H>(), new Array_2D<H,C>())
-// const b = mm(new Array_2D<W,H>(), new Array_2D<W,C>())
