@@ -25,6 +25,19 @@ describe('arrays', () => {
     })
   })
 
+  describe('of', () => {
+    it('should work', () => {
+      expect(arrays.of(23, 3)).toEqual([23,23,23])
+    })
+  })
+
+  describe('lpad', () => {
+    it('should work', () => {
+      expect(arrays.lpad([2,3], 4, 1)).toEqual([1,1,2,3])
+      expect(arrays.lpad([1,2,3], 2, 1)).toEqual([1,2,3])
+    })
+  })
+
   describe('map2', () => {
     it('should work on arrays of the same length', () => {
       expect(arrays.map2([2,3],[4,5], (a,b) => a + b)).toEqual([6,8])

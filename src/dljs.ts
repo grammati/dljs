@@ -3,8 +3,11 @@ import * as arrays from "./arrays";
 type ArrayLike = NDArray | number | number[];
 
 export class NDArray {
-  readonly data: number[];
-  readonly shape: number[];
+  private _data: number[];
+  private shape: number[];
+  private offset: number;
+  private dataLength: number;
+  private strides: number[];
 
   get size() {
     return this.data.length;
@@ -14,16 +17,49 @@ export class NDArray {
     return this.shape.length;
   }
 
-  constructor(data: number[], shape?: number[]) {
-    this.data = data;
+  get data(): number[] {
+    this.disconnect();
+    return this._data;
+  }
+
+  disconnect() {
+    if (this.offset > 0 || this.dataLength !== this._data.length) {
+      // This is a view on a shared data array. Copy our piece of it.
+      this._data = arrays.slice(this._data, this.offset, this.dataLength);
+      this.offset = 0;
+      this.dataLength = this._data.length;
+    }
+  }
+
+  constructor(
+    data: number[],
+    shape?: number[],
+    offset?: number,
+    dataLength?: number
+  ) {
+    this._data = data;
     this.shape = shape || [data.length];
+    this.dataLength = dataLength || data.length;
+    this.offset = offset || 0;
+    this.strides = strides(this.shape);
     this.validateShapeMatchesData();
   }
 
   private validateShapeMatchesData() {
-    if (this.data.length !== this.shape.reduce((a, b) => a * b)) {
+    if (this.dataLength !== this.shape.reduce((a, b) => a * b)) {
       throw new Error("Shape is not compatible with size of data array");
     }
+  }
+
+  item(idx: number): NDArray {
+    const shape = [...this.shape];
+    shape.shift();
+    return new NDArray(
+      this.data,
+      shape,
+      this.strides[0] * idx,
+      this.strides[0]
+    );
   }
 
   add(other: ArrayLike): NDArray {
@@ -79,6 +115,32 @@ export function broadcast(shape1: number[], shape2: number[]): number[] {
   });
 }
 
+function strides(shape: number[]): number[] {
+  const strides: number[] = [];
+  let stride = 1;
+  for (let i = shape.length - 1; i >= 0; --i) {
+    const a = shape[i];
+    strides.unshift(a === 1 ? 0 : stride);
+    stride *= a;
+  }
+  return strides;
+}
+
+export function conform(
+  shape1: number[],
+  shape2: number[]
+): [number[], number[]] {
+  // return an array of numbers that tell you how far to move ahead in the
+  // underlying data array when moving ahead by one in the corresponding
+  // dimension.
+  // eg: conform([2,3], [2,3]) => [3,1]
+  const ndims = Math.max(shape1.length, shape2.length);
+  return [
+    strides(arrays.lpad(shape1, ndims, 1)),
+    strides(arrays.lpad(shape2, ndims, 1))
+  ];
+}
+
 export function broadcastFn(
   a: NDArray,
   b: NDArray,
@@ -97,7 +159,15 @@ export function broadcastFn(
     return new NDArray(out, a.shape);
   } else {
     const outShape = broadcast(a.shape, b.shape);
+    const [aStrides, bStrides] = conform(a.shape, b.shape);
     const size = sizeOf(outShape);
+    const out = arrays.array<number>(size);
+
+    for (let i = 0; i < outShape[0]; ++i) {}
+    const idx = arrays.zeros(outShape.length);
+    for (let d = 0; d < idx.length; ++d) {
+      // ???
+    }
     return new NDArray(arrays.zeros(size), outShape);
   }
 }
