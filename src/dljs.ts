@@ -4,17 +4,21 @@ type ArrayLike = NDArray | number | number[];
 
 export class NDArray {
   private _data: number[];
-  private shape: number[];
+  private _shape: number[];
   private offset: number;
   private dataLength: number;
   private strides: number[];
+
+  get shape() {
+    return this._shape;
+  }
 
   get size() {
     return this.data.length;
   }
 
   get ndims() {
-    return this.shape.length;
+    return this._shape.length;
   }
 
   get data(): number[] {
@@ -38,21 +42,25 @@ export class NDArray {
     dataLength?: number
   ) {
     this._data = data;
-    this.shape = shape || [data.length];
+    this._shape = shape || [data.length];
     this.dataLength = dataLength || data.length;
     this.offset = offset || 0;
-    this.strides = strides(this.shape);
+    this.strides = strides(this._shape);
     this.validateShapeMatchesData();
   }
 
+  reshape(shape: number[]): NDArray {
+    return new NDArray(this._data, shape, this.offset, this.dataLength);
+  }
+
   private validateShapeMatchesData() {
-    if (this.dataLength !== this.shape.reduce((a, b) => a * b)) {
+    if (this.dataLength !== this._shape.reduce((a, b) => a * b)) {
       throw new Error("Shape is not compatible with size of data array");
     }
   }
 
   item(idx: number): NDArray {
-    const shape = [...this.shape];
+    const shape = [...this._shape];
     shape.shift();
     return new NDArray(
       this.data,
@@ -77,7 +85,11 @@ export class NDArray {
   }
 
   getAt(coords: number[]): number {
-    return 0;
+    const [i, ...rest] = coords;
+    if (rest.length > 0) {
+      return this.item(i).getAt(rest)
+    }
+    return this._data[i + this.offset];
   }
 }
 
@@ -146,28 +158,31 @@ export function broadcastFn(
   b: NDArray,
   op: (a: number, b: number) => number
 ): NDArray {
-  if (arrays.eq(a.shape, b.shape)) {
-    // Fast-path (maybe... I haven't measured)
-    const size = sizeOf(a.shape);
-    const out = arrays.array<number>(size);
-    const da = a.data;
-    const db = b.data;
-    for (let i = 0; i < size; ++i) {
-      // Assuming/hoping the JIT inlines this:
-      out[i] = op(da[i], db[i]);
-    }
-    return new NDArray(out, a.shape);
-  } else {
-    const outShape = broadcast(a.shape, b.shape);
-    const [aStrides, bStrides] = conform(a.shape, b.shape);
-    const size = sizeOf(outShape);
-    const out = arrays.array<number>(size);
+  const outShape = broadcast(a.shape, b.shape);
+  const size = sizeOf(outShape);
+  const out = new NDArray(arrays.array<number>(size), outShape);
 
-    for (let i = 0; i < outShape[0]; ++i) {}
-    const idx = arrays.zeros(outShape.length);
-    for (let d = 0; d < idx.length; ++d) {
-      // ???
+  broadcastInto(a, b, op, out);
+  return out;
+}
+
+function broadcastInto(
+  a: NDArray,
+  b: NDArray,
+  op: (a: number, b: number) => number,
+  out: NDArray
+): void {
+  const [aStrides, bStrides] = conform(a.shape, b.shape);
+
+  const [v, ...rest] = out.shape;
+  if (rest.length > 0) {
+    for (let i = 0; i < v; ++i) {
+      broadcastInto(a.item(i), b.item(i), op, out.item(i))
     }
-    return new NDArray(arrays.zeros(size), outShape);
+  } else {
+    // innermost dimension
+    for (let i = 0; i < v; ++i) {
+      out.setAt([i], op(a.getAt([i]), b.getAt([i])))
+    }
   }
 }

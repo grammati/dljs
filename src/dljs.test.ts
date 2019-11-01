@@ -29,6 +29,7 @@ describe("NDArray", () => {
       const a = new NDArray([1,2,3,4], [2,2])
       const b = a.item(1);
       expect(b.data).toEqual([3,4])
+      expect(b.shape).toEqual([2])
     })
   })
 });
