@@ -3,7 +3,7 @@ import * as arrays from './arrays'
 describe('arrays', () => {
 
   describe('zeros', () => {
-    it('should work', () {
+    it('should work', () => {
       expect(arrays.zeros(3)).toEqual([0,0,0])
       expect(arrays.zeros(1)).toEqual([0])
       expect(arrays.zeros(0)).toEqual([])

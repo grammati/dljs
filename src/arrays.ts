@@ -17,6 +17,10 @@ export function zeros(length: number): number[] {
   return fill(new Array(length), 0);
 }
 
+export function product(shape: number[]): number {
+  return shape.reduce((a, b) => a * b, 1);
+}
+
 export function map2<T, U, V>(arr1: T[], arr2: U[], f: (a: T, b: U) => V): V[] {
   if (arr1.length !== arr2.length) {
     throw new Error(
@@ -52,3 +56,5 @@ export function slice<T>(arr: T[], start: number, length: number): T[] {
   }
   return out;
 }
+
+

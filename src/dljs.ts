@@ -1,6 +1,31 @@
+import { UniqueESSymbolType } from "typescript";
 import * as arrays from "./arrays";
 
 type ArrayLike = NDArray | number | number[];
+
+export class BArray {
+  private _data: Float32Array;
+  private _shape: number[];
+  private constructor(data: Float32Array, shape: number[]) {
+    this._data = data;
+    this._shape = shape;
+  }
+  static fromShape(shape: number[]): BArray {
+    return new BArray(new Float32Array(arrays.product(shape)), shape);
+  }
+  zeros(shape: number[]): BArray {
+    const a = BArray.fromShape(shape);
+    a._data.fill(0);
+    return a;
+  }
+  add(other: BArray): BArray {
+    const result = BArray.fromShape(this._shape);
+    for (let i = 0; i < this._data.length; i++) {
+      result._data[i] = this._data[i] + other._data[i];
+    }
+    return result;
+  }
+}
 
 export class NDArray {
   private _data: number[];
@@ -77,7 +102,7 @@ export class NDArray {
     if (other instanceof NDArray) {
       return broadcastFn(this, other, (a, b) => a + b);
     }
-    return new NDArray(this.data.map(v => v + other));
+    return new NDArray(this.data.map((v) => v + other));
   }
 
   setAt(coords: number[], value: number) {
@@ -87,7 +112,7 @@ export class NDArray {
   getAt(coords: number[]): number {
     const [i, ...rest] = coords;
     if (rest.length > 0) {
-      return this.item(i).getAt(rest)
+      return this.item(i).getAt(rest);
     }
     return this._data[i + this.offset];
   }
@@ -149,7 +174,7 @@ export function conform(
   const ndims = Math.max(shape1.length, shape2.length);
   return [
     strides(arrays.lpad(shape1, ndims, 1)),
-    strides(arrays.lpad(shape2, ndims, 1))
+    strides(arrays.lpad(shape2, ndims, 1)),
   ];
 }
 
@@ -177,12 +202,12 @@ function broadcastInto(
   const [v, ...rest] = out.shape;
   if (rest.length > 0) {
     for (let i = 0; i < v; ++i) {
-      broadcastInto(a.item(i), b.item(i), op, out.item(i))
+      broadcastInto(a.item(i), b.item(i), op, out.item(i));
     }
   } else {
     // innermost dimension
     for (let i = 0; i < v; ++i) {
-      out.setAt([i], op(a.getAt([i]), b.getAt([i])))
+      out.setAt([i], op(a.getAt([i]), b.getAt([i])));
     }
   }
 }

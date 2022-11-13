@@ -2,8 +2,13 @@ import { array, broadcast, conform, NDArray } from "./dljs";
 
 describe("NDArray", () => {
   describe("addition", () => {
-    const a = array([1, 2, 3]);
-    const expected = array([2, 3, 4]);
+    let a: NDArray;
+    let expected: NDArray;
+
+    beforeEach(() => {
+      a = array([1, 2, 3]);
+      expected = array([2, 3, 4]);
+    });
 
     it("should add a number", () => {
       expect(a.add(1)).toEqual(expected);
@@ -24,14 +29,14 @@ describe("NDArray", () => {
     });
   });
 
-  describe('views', () => {
-    it('should share underlying data', () => {
-      const a = new NDArray([1,2,3,4], [2,2])
+  describe("views", () => {
+    it("should share underlying data", () => {
+      const a = new NDArray([1, 2, 3, 4], [2, 2]);
       const b = a.item(1);
-      expect(b.data).toEqual([3,4])
-      expect(b.shape).toEqual([2])
-    })
-  })
+      expect(b.data).toEqual([3, 4]);
+      expect(b.shape).toEqual([2]);
+    });
+  });
 });
 
 describe("broadcast", () => {
@@ -51,12 +56,21 @@ describe("broadcast", () => {
   });
 });
 
-describe('conform', () => {
-  it('should work', () => {
-    expect(conform([3], [1])).toEqual([[1],[0]])
-    expect(conform([3],[3])).toEqual([[1],[1]])
-    expect(conform([2,3],[3])).toEqual([[3,1],[0,1]])
-    expect(conform([2,1,4],[3,4])).toEqual([[4,0,1],[0,4,1]])
-    expect(conform([2,3,4],[1])).toEqual([[12,4,1],[0,0,0]])
-  })
-})
+describe("conform", () => {
+  it("should work", () => {
+    expect(conform([3], [1])).toEqual([[1], [0]]);
+    expect(conform([3], [3])).toEqual([[1], [1]]);
+    expect(conform([2, 3], [3])).toEqual([
+      [3, 1],
+      [0, 1],
+    ]);
+    expect(conform([2, 1, 4], [3, 4])).toEqual([
+      [4, 0, 1],
+      [0, 4, 1],
+    ]);
+    expect(conform([2, 3, 4], [1])).toEqual([
+      [12, 4, 1],
+      [0, 0, 0],
+    ]);
+  });
+});
