@@ -1,6 +1,13 @@
-export function fill<T>(a: T[], val: T): T[] {
+/**
+ * Utility functions for working with one-dimensional arrays of numbers.
+ */
+
+/**
+ * Fill an array with values produced by a function. Returns the array.
+ */
+export function fill<T>(a: T[], f: (i: number) => T): T[] {
   for (let i = 0; i < a.length; ++i) {
-    a[i] = val;
+    a[i] = f(i);
   }
   return a;
 }
@@ -9,12 +16,12 @@ export function array<T>(length: number): T[] {
   return new Array<T>(length);
 }
 
-export function ones(length: number): number[] {
-  return fill(new Array(length), 1);
+export function zeros(length: number): number[] {
+  return new Array(length).fill(0);
 }
 
-export function zeros(length: number): number[] {
-  return fill(new Array(length), 0);
+export function ones(length: number): number[] {
+  return new Array(length).fill(1);
 }
 
 export function product(shape: number[]): number {
@@ -35,26 +42,9 @@ export function eq<T>(arr1: T[], arr2: T[]): boolean {
 }
 
 export function of<T>(val: T, length: number) {
-  return fill(array<T>(length), val);
+  return array<T>(length).fill(val);
 }
 
 export function lpad<T>(arr: T[], length: number, val: T): T[] {
   return arr.length < length ? [...of(val, length - arr.length), ...arr] : arr;
 }
-
-export function slice<T>(arr: T[], start: number, length: number): T[] {
-  if (start + length > arr.length) {
-    throw new Error(
-      `Index out of bounds: array length == ${
-        arr.length
-      }, start == ${start}, length == ${length}`
-    );
-  }
-  const out = array<T>(length);
-  for (let i = 0; i < length; ++i) {
-    out[i] = arr[i + start];
-  }
-  return out;
-}
-
-
