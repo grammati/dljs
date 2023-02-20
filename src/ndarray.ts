@@ -5,35 +5,41 @@
  */
 import * as arrays from "./arrays";
 
-type ArrayLike = NDArray | number | number[];
+type NumberArray = number[] | NumberArray[];
+type Numeric = number | NumberArray | NDArray;
 
 export class NDArray {
   private _data: number[];
   private _shape: number[];
   private offset: number;
-  private dataLength: number;
   private strides: number[];
 
-  constructor(
-    data: number[],
-    shape?: number[],
-    offset?: number,
-    dataLength?: number
-  ) {
+  constructor(data: number[], shape?: number[], offset?: number) {
     this._data = data;
     this._shape = shape || [data.length];
-    this.dataLength = dataLength || data.length;
     this.offset = offset || 0;
     this.strides = strides(this._shape);
-    this.validateShapeMatchesData();
+    this.assertValidShape();
+  }
+
+  /**
+   * Returns the item at the given index of this array's first dimension, which
+   * will be an NDArray of one fewer dimensions.
+   *
+   * Note that the returned array is a view on the original data, so modifying
+   * either array will affect the other.
+   *
+   */
+  at(idx: number): NDArray {
+    // TODO: cache these, to avoid re-creating.
+    // TODO: what should this do for a 0-dimensional array? Throw?
+    return new NDArray(this._data, this._shape.slice(1), this.strides[0] * idx);
   }
 
   *[Symbol.iterator]() {
     // Iterate over the first dimension, yielding an NDArray for each row.
-    if (this.ndims == 1) {
-      for (let i = this.offset; i < this.offset + this.dataLength; i++) {
-        yield this._data[i];
-      }
+    if (this._shape.length === 0) {
+      throw new Error("Cannot iterate over a 0-dimensional array.");
     }
     for (let i = 0; i < this._shape[0]; i++) {
       yield this.at(i);
@@ -68,40 +74,38 @@ export class NDArray {
     return new NDArray(this._data, shape, this.offset, this.dataLength);
   }
 
-  private validateShapeMatchesData() {
-    if (this.dataLength !== this._shape.reduce((a, b) => a * b)) {
-      throw new Error("Shape is not compatible with size of data array");
+  private assertValidShape() {
+    const nValues = arrays.product(this._shape);
+    if (nValues + this.offset > this._data.length) {
+      throw new Error(
+        `Data array too small. Shape ${
+          this._shape
+        } requires ${nValues} values, offset is ${
+          this.offset
+        }, so data array must have a length of at least ${
+          nValues + this.offset
+        }, but is only ${this._data.length}.`
+      );
     }
   }
 
-  at(idx: number): NDArray {
-    const shape = [...this._shape];
-    shape.shift();
-    return new NDArray(
-      this._data,
-      shape,
-      this.strides[0] * idx,
-      this.strides[0]
-    );
-  }
-
-  add(other: ArrayLike): NDArray {
+  add(other: Numeric): NDArray {
     return this.binop(other, (a, b) => a + b);
   }
 
-  sub(other: ArrayLike): NDArray {
+  sub(other: Numeric): NDArray {
     return this.binop(other, (a, b) => a - b);
   }
 
-  mul(other: ArrayLike): NDArray {
+  mul(other: Numeric): NDArray {
     return this.binop(other, (a, b) => a * b);
   }
 
-  div(other: ArrayLike): NDArray {
+  div(other: Numeric): NDArray {
     return this.binop(other, (a, b) => a / b);
   }
 
-  binop(other: ArrayLike, fn: (a: number, b: number) => number): NDArray {
+  binop(other: Numeric, fn: (a: number, b: number) => number): NDArray {
     if (other instanceof Array) {
       return this.binop(new NDArray(other), fn);
     }
@@ -111,14 +115,11 @@ export class NDArray {
     return new NDArray(this._data.map((v) => fn(v, other)));
   }
 
-  iadd(other: ArrayLike): NDArray {
+  iadd(other: Numeric): NDArray {
     return this.binopInplace(other, (a, b) => a + b);
   }
 
-  binopInplace(
-    other: ArrayLike,
-    fn: (a: number, b: number) => number
-  ): NDArray {
+  binopInplace(other: Numeric, fn: (a: number, b: number) => number): NDArray {
     if (other instanceof Array) {
       return this.binopInplace(new NDArray(other), fn);
     }
@@ -197,12 +198,82 @@ export class NDArray {
   }
 }
 
-export function sizeOf(shape: number[]) {
-  return shape.reduce((a, b) => a * b);
+function assert(condition: boolean, message?: string) {
+  if (!condition) {
+    throw new Error(message);
+  }
 }
 
-export function array(data: number[]) {
+function invalid(message: string) {
+  throw new Error(message);
+}
+
+/**
+ * Factory function for creating an NDArray from a native array.
+ *
+ * If passed an NDArray, returns it unchanged. Useful for ensuring that
+ * something is an NDArray.
+ *
+ * If passed a number, returns a 0-dimensional array containing that number.
+ *
+ * If passed a number[], returns a 1-dimensional array.
+ *
+ * If passed a nested number[], returns a N-dimensional array. The provided
+ * array must be rectangular. This function will throw an error if it is not.
+ */
+function array(data: Numeric): NDArray {
+  if (data instanceof NDArray) {
+    return data;
+  }
+  if (typeof data === "number") {
+    return new NDArray([data], []);
+  }
+  // else: number[], or number[][], or ...
+  assertRectangular(data);
   return new NDArray(data);
+}
+
+/**
+ * Determine the shape implied by the size of the first entries in a nested
+ * array, recursively.
+ */
+function impliedShape(data: number | NumberArray): number[] {
+  if (typeof data === "number") {
+    return [];
+  }
+  if (data.length === 0) {
+    invalid("Dimension has size 0");
+  }
+  return [data.length, ...impliedShape(data[0])];
+}
+
+function assertRectangular(data: NumberArray) {
+  const shape = impliedShape(data);
+  assertShape(shape, data);
+}
+
+function assertArray(data: number | NumberArray): asserts data is number[] {
+  assert(Array.isArray(data), "Expected array, got " + typeof data);
+}
+
+function assertShape(shape: number[], data: number | NumberArray) {
+  if (shape.length === 0) {
+    assert(typeof data === "number", "Expected number, got " + typeof data);
+  }
+  assertArray(data);
+  assert(
+    data.length === shape[0],
+    "Expected length " + shape[0] + ", got " + data.length
+  );
+
+  const subShape = shape.slice(1);
+  for (const subarray of data) {
+    assertShape(subShape, subarray);
+  }
+}
+
+export function sizeOf(shape: number[]) {
+  return shape.reduce((a, b) => a * b);
 }
 
 export function ones(shape: number | number[]): NDArray {
@@ -231,12 +302,15 @@ export function broadcast(shape1: number[], shape2: number[]): number[] {
   });
 }
 
+/**
+ * Calculate the strides for an array of the given shape.
+ */
 export function strides(shape: number[]): number[] {
   const strides: number[] = [];
   let stride = 1;
   for (let i = shape.length - 1; i >= 0; --i) {
     const a = shape[i];
-    strides.unshift(a === 1 ? 0 : stride);
+    strides.unshift(a === 1 ? 0 : stride); // TODO: WTF? Why did I do this?
     stride *= a;
   }
   return strides;
