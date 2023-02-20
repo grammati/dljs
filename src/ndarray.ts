@@ -14,6 +14,20 @@ export class NDArray {
   private dataLength: number;
   private strides: number[];
 
+  constructor(
+    data: number[],
+    shape?: number[],
+    offset?: number,
+    dataLength?: number
+  ) {
+    this._data = data;
+    this._shape = shape || [data.length];
+    this.dataLength = dataLength || data.length;
+    this.offset = offset || 0;
+    this.strides = strides(this._shape);
+    this.validateShapeMatchesData();
+  }
+
   *[Symbol.iterator]() {
     // Iterate over the first dimension, yielding an NDArray for each row.
     if (this.ndims == 1) {
@@ -48,20 +62,6 @@ export class NDArray {
       this.offset = 0;
       this.dataLength = this._data.length;
     }
-  }
-
-  constructor(
-    data: number[],
-    shape?: number[],
-    offset?: number,
-    dataLength?: number
-  ) {
-    this._data = data;
-    this._shape = shape || [data.length];
-    this.dataLength = dataLength || data.length;
-    this.offset = offset || 0;
-    this.strides = strides(this._shape);
-    this.validateShapeMatchesData();
   }
 
   reshape(shape: number[]): NDArray {
@@ -133,7 +133,7 @@ export class NDArray {
     axis: number,
     fn: (a: number, b: number) => number,
     initial: number
-  ): NDArray | number {
+  ): NDArray {
     if (axis >= this.ndims) {
       throw new Error(
         `Axis ${axis} out of range for array of dimension ${this.ndims}`
@@ -141,7 +141,7 @@ export class NDArray {
     }
     if (this.ndims === 1) {
       // Return a scalar.
-      return this._data.reduce(fn, initial);
+      return new NDArray([this._data.reduce(fn, initial)], []);
     }
     if (axis === 0) {
       const newShape = [...this._shape];
@@ -153,6 +153,25 @@ export class NDArray {
       return result;
     } else {
       throw new Error("Not implemented");
+    }
+  }
+
+  reduceInto(
+    axis: number,
+    fn: (a: number, b: number) => number,
+    initial: number,
+    destination: NDArray
+  ) {
+    if (axis >= this.ndims) {
+      throw new Error(
+        `Axis ${axis} out of range for array of dimension ${this.ndims}`
+      );
+    }
+    if (this.ndims === 1) {
+      destination.setAt([0], this._data.reduce(fn, initial));
+    }
+    for (const [i, subarray] of enumerate(this)) {
+      subarray.reduceInto(axis - 1, fn, initial, destination.item(i));
     }
   }
 
@@ -269,5 +288,13 @@ function broadcastInto(
     for (let i = 0; i < v; ++i) {
       out.setAt([i], op(a.getAt([i]), b.getAt([i])));
     }
+  }
+}
+
+function* enumerate<T>(iterable: Iterable<T>): Iterable<[number, T]> {
+  let i = 0;
+  for (const item of iterable) {
+    yield [i, item];
+    ++i;
   }
 }
